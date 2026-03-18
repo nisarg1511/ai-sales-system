@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizations OrganizationMember[]
+  sessions      OnboardingSession[]
+}
+
+model Organization {
+  id           String  @id @default(cuid())
+  name         String
+  website      String?
+  industry     String?
+  companySize  String?
+  salesChannel String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members            OrganizationMember[]
+  onboardingSessions OnboardingSession[]
+  documents          Document[]
+  extractedData      ExtractedBusinessData?
+  agentConfigs       AgentConfiguration[]
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  role           String   @default("owner")
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([userId, organizationId])
+}
+
+model OnboardingSession {
+  id             String  @id @default(cuid())
+  userId         String?
+  organizationId String?
+  currentStep    Int     @default(1)
+  status         String  @default("in_progress")
+  formData       Json    @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User?         @relation(fields: [userId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  documents    Document[]
+}
+
+model Document {
+  id             String    @id @default(cuid())
+  organizationId String?
+  sessionId      String?
+  fileName       String
+  fileType       String
+  fileUrl        String?
+  rawContent     String?   @db.Text
+  processedAt    DateTime?
+  status         String    @default("pending")
+  errorMessage   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization?      @relation(fields: [organizationId], references: [id])
+  session      OnboardingSession? @relation(fields: [sessionId], references: [id])
+  embeddings   DocumentEmbedding[]
+}
+
+model DocumentEmbedding {
+  id         String   @id @default(cuid())
+  documentId String
+  chunkIndex Int
+  content    String   @db.Text
+  embedding  Float[]
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+model ExtractedBusinessData {
+  id             String  @id @default(cuid())
+  organizationId String  @unique
+  sessionId      String?
+
+  businessDescription  String? @db.Text
+  businessModel        String?
+  confidenceScore      Float?
+  products             Json    @default("[]")
+  services             Json    @default("[]")
+  targetCustomers      Json    @default("[]")
+  idealCustomerProfile Json    @default("{}")
+  valuePropositions    Json    @default("[]")
+  pricingStructure     Json    @default("{}")
+  salesProcess         Json    @default("{}")
+  typicalDealSize      String?
+  salesCycle           String?
+  objections           Json    @default("[]")
+  faqs                 Json    @default("[]")
+  brandTone            String?
+  keyMessages          Json    @default("[]")
+  dynamicAnswers       Json    @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+}
+
+model AgentConfiguration {
+  id             String @id @default(cuid())
+  organizationId String
+  name           String @default("AI Sales Agent")
+  version        Int    @default(1)
+  status         String @default("draft")
+
+  personality             Json @default("{}")
+  salesGoals              Json @default("[]")
+  qualificationRules      Json @default("[]")
+  offerStrategy           Json @default("{}")
+  upsellLogic             Json @default("[]")
+  followUpCadence         Json @default("{}")
+  salesScripts            Json @default("{}")
+  leadQualificationRubric Json @default("{}")
+  fullConfig              Json @default("{}")
+
+  deployedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+}
+
+model CrawlJob {
+  id             String   @id @default(cuid())
+  sessionId      String
+  url            String
+  status         String   @default("pending")
+  pagesFound     Int      @default(0)
+  pagesProcessed Int      @default(0)
+  error          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
